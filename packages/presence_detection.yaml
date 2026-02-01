@@ -39,8 +39,12 @@ binary_sensor:
                     - switch.turn_on: mic_mute_switch
     has_moving_target:
       name: "Moving Target"
+      filters:
+        - delayed_off: 3s  # Debounce rapid toggling
     has_still_target:
       name: "Still Target"
+      filters:
+        - delayed_off: 3s  # Debounce rapid toggling
 
 sensor:
   - platform: ld2410
