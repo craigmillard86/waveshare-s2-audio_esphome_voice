@@ -46,14 +46,24 @@ sensor:
   - platform: ld2410
     moving_distance:
       name: "Moving Distance"
+      filters:
+        - throttle: 5s
     still_distance:
       name: "Still Distance"
+      filters:
+        - throttle: 5s
     moving_energy:
       name: "Moving Energy"
+      filters:
+        - throttle: 5s
     still_energy:
       name: "Still Energy"
+      filters:
+        - throttle: 5s
     detection_distance:
       name: "Detection Distance"
+      filters:
+        - throttle: 5s
 
 switch:
   # Control switch - enable/disable presence-based mic control

@@ -155,6 +155,8 @@ logger:
     ring_buffer: WARN  # Reduce ring_buffer spam
     resampler_speaker: WARN  # Reduce resampler spam
     speaker_mixer: INFO  # Reduce mixer spam
+    ld2410: INFO  # Reduce presence sensor spam
+    sensor: INFO  # Reduce sensor update spam
 
 api:
   id: api_id
