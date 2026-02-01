@@ -1,0 +1,274 @@
+# LED Control Package
+# Contains: light, LED effects, control_leds scripts, LED-related globals
+
+globals:
+  - id: led_ring_color_r
+    type: float
+    restore_value: yes
+    initial_value: '1.0'
+  - id: led_ring_color_g
+    type: float
+    restore_value: yes
+    initial_value: '0.0'
+  - id: led_ring_color_b
+    type: float
+    restore_value: yes
+    initial_value: '1.0'
+  - id: current_volume
+    type: float
+    restore_value: no
+    initial_value: '0.6'
+
+light:
+  - platform: esp32_rmt_led_strip
+    id: status_ring
+    name: "Status Ring"
+    pin: GPIO38
+    num_leds: ${led_num}
+    chipset: WS2812
+    rgb_order: RGB
+    default_transition_length: 10ms
+    effects:
+      - pulse:
+          name: Pulse
+          transition_length: 0.5s
+          update_interval: 0.5s
+          min_brightness: 30%
+          max_brightness: 100%
+      - addressable_rainbow:
+          name: "Rainbow Slow"
+          speed: 9
+          width: 7
+      - addressable_color_wipe:
+          name: "Wipe"
+          colors:
+          - red: 50%
+            green: 0%
+            blue: 100%
+            num_leds: 6
+            gradient: true
+          - red: 0%
+            green: 0%
+            blue: 0%
+            num_leds: 1
+      - addressable_color_wipe:
+          name: "thinking Wipe"
+          colors:
+          - red: 100%
+            green: 50%
+            blue: 0%
+            num_leds: 6
+            gradient: true
+          - red: 0%
+            green: 0%
+            blue: 0%
+            num_leds: 1
+      - addressable_color_wipe:
+          name: "response Wipe"
+          colors:
+          - red: 100%
+            green: 0%
+            blue: 50%
+            num_leds: 6
+            gradient: true
+          - red: 0%
+            green: 0%
+            blue: 0%
+            num_leds: 1
+
+number:
+  - platform: template
+    id: led_ring_brightness
+    name: "LED Ring Brightness"
+    icon: mdi:brightness-6
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    min_value: 0.4
+    max_value: 1.0
+    step: 0.05
+    initial_value: 0.8
+    mode: slider
+    on_value:
+      - if:
+          condition:
+            light.is_on: status_ring
+          then:
+            - light.turn_on:
+                id: status_ring
+                brightness: !lambda 'return x;'
+
+switch:
+  - platform: template
+    id: led_ring_enabled
+    name: "LED Ring Enabled"
+    icon: mdi:led-on
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    on_turn_off:
+      - light.turn_off: status_ring
+    on_turn_on:
+      - script.execute: control_leds
+
+script:
+  - id: flash_ring
+    then:
+      - light.turn_on: { id: status_ring, red: 1.0, green: 0.0, blue: 0.0, brightness: 100% }
+      - delay: 250ms
+      - light.turn_off: status_ring
+
+  # Minimal dispatcher for LEDs: off / solid / built-in effects
+  - id: led_set_effect
+    mode: single
+    parameters:
+      effect: std::string
+      r: float
+      g: float
+      b: float
+    then:
+      - lambda: |-
+          id(led_ring_color_r) = r;
+          id(led_ring_color_g) = g;
+          id(led_ring_color_b) = b;
+          ESP_LOGI("led", "led_set_effect: effect='%s' rgb(%.2f, %.2f, %.2f) brightness=%.2f",
+                   effect.c_str(), r, g, b, (float) id(led_ring_brightness).state);
+      - if:
+          condition:
+            lambda: 'return effect == "off";'
+          then:
+            - light.turn_off: status_ring
+          else:
+            - if:
+                condition:
+                  lambda: 'return effect == "solid";'
+                then:
+                  - light.turn_on:
+                      id: status_ring
+                      brightness: !lambda 'return id(led_ring_brightness).state;'
+                      red: !lambda 'return id(led_ring_color_r);'
+                      green: !lambda 'return id(led_ring_color_g);'
+                      blue: !lambda 'return id(led_ring_color_b);'
+                else:
+                  - light.turn_on:
+                      id: status_ring
+                      brightness: !lambda 'return id(led_ring_brightness).state;'
+                      red: !lambda 'return id(led_ring_color_r);'
+                      green: !lambda 'return id(led_ring_color_g);'
+                      blue: !lambda 'return id(led_ring_color_b);'
+                      effect: !lambda 'return effect;'
+
+  # Single LED state machine (small footprint)
+  - id: control_leds
+    mode: restart
+    then:
+      - lambda: |-
+          // First check: LEDs disabled
+          if (!id(led_ring_enabled).state) {
+            return;  // Don't control LEDs at all
+          }
+
+          const bool wifi_connected = id(wifi_id).is_connected();
+          const bool api_connected  = id(api_id).is_connected();
+          const bool ringing        = id(timer_ringing).state;
+          const bool improv_ble     = id(improv_ble_in_progress);
+          const bool init_progress  = id(init_in_progress);
+          const int  phase          = id(voice_assistant_phase);
+
+          // Refresh timer cache sparsely when needed
+          id(check_if_timers_active).execute();
+          const bool timers_active = id(is_timer_active);
+
+          ESP_LOGD("led",
+                   "control_leds: wifi=%d api=%d improv=%d init=%d ringing=%d timers_active=%d phase=%d",
+                   (int)wifi_connected, (int)api_connected, (int)improv_ble, (int)init_progress,
+                   (int)ringing, (int)timers_active, phase);
+
+          auto set = [&](const char* effect, float r, float g, float b) {
+            id(led_set_effect).execute(effect, r, g, b);
+          };
+
+          if (improv_ble) {                          // Provisioning
+            set("Pulse", 1.0, 0.89, 0.71);    // warm white
+            return;
+          }
+          if (init_progress) {                       // Boot/init
+            id(play_sound).execute(1, id(white_noise));
+            return;
+          }
+          if (!wifi_connected || !api_connected) {   // HA disconnected
+            set("Pulse", 1.0, 0.0, 0.0);
+            return;
+          }
+          if (ringing) {                             // Timer ringing
+            set("Pulse", 0.6, 0.0, 0.6);
+            return;
+          }
+
+          // Voice assistant phases - use rainbow for all "working" states
+          switch (phase) {
+            case ${voice_assist_waiting_for_command_phase_id}:
+            case ${voice_assist_listening_for_command_phase_id}:
+            case ${voice_assist_thinking_phase_id}:
+            case ${voice_assist_replying_phase_id}:
+              set("Rainbow Slow", 0.0, 0.0, 0.0);  // Rainbow ignores color params
+              return;
+            case ${voice_assist_error_phase_id}:
+            case ${voice_assist_not_ready_phase_id}:
+              set("Pulse", 1.0, 0.0, 0.0);  // Keep red pulse for errors
+              return;
+            default: break;
+          }
+
+          // Timers ticking (no bar, minimal footprint)
+          if (timers_active) {
+            set("Pulse", 0.6, 0.0, 0.6);
+            return;
+          }
+
+          // Idle
+          set("off", 0, 0, 0);
+
+  # Volume gradient animation: red (low) -> yellow (mid) -> green (high)
+  - id: show_volume_gradient
+    mode: restart
+    then:
+      - logger.log:
+          format: "[VOLUME] show_volume_gradient called, vol=%.2f, led_enabled=%d"
+          args: ['id(current_volume)', 'id(led_ring_enabled).state']
+      - if:
+          condition:
+            switch.is_on: led_ring_enabled
+          then:
+            - light.turn_on:
+                id: status_ring
+                brightness: !lambda 'return id(led_ring_brightness).state;'
+                red: !lambda |-
+                  float vol = std::max(0.0f, std::min(1.0f, id(current_volume)));
+                  ESP_LOGD("volume", "vol=%.2f, red=%.2f", vol, 1.0f - vol);
+                  return 1.0f - vol;
+                green: !lambda |-
+                  float vol = std::max(0.0f, std::min(1.0f, id(current_volume)));
+                  return vol;
+                blue: 0.0
+            - logger.log:
+                format: "[VOLUME] LED gradient displayed for vol=%.2f"
+                args: ['id(current_volume)']
+            - delay: 1.5s
+            - script.execute: control_leds
+
+  # Brief green pulse when mute/unmute changes, then restore
+  - id: control_leds_volume_changed
+    mode: restart
+    then:
+      - light.turn_on:
+          id: status_ring
+          brightness: !lambda 'return id(led_ring_brightness).state;'
+          red: 0.0
+          green: 1.0
+          blue: 0.0
+          effect: "Pulse"
+      - lambda: |-
+          ESP_LOGD("led", "mute_changed: flash green");
+      - delay: 1.2s
+      - script.execute: control_leds

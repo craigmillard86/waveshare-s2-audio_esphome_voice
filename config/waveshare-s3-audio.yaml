@@ -46,7 +46,6 @@ packages:
   leds: !include packages/led_control.yaml
   controls: !include packages/buttons_controls.yaml
   timers: !include packages/timers_alarms.yaml
-  presence: !include packages/presence_detection.yaml
   # camera: !include waveshare_camera_pkg.yaml  # optional
 
 esphome:
@@ -107,31 +106,11 @@ esp32:
       CONFIG_SPIRAM_RODATA: "y"
       CONFIG_SPIRAM_FETCH_INSTRUCTIONS: "y"
 
-      # BLE options removed - BLE is disabled to save internal RAM
-      # CONFIG_BT_ALLOCATION_FROM_SPIRAM_FIRST: "y"
-      # CONFIG_BT_BLE_DYNAMIC_ENV_MEMORY: "y"
+      CONFIG_BT_ALLOCATION_FROM_SPIRAM_FIRST: "y"
+      CONFIG_BT_BLE_DYNAMIC_ENV_MEMORY: "y"
 
       CONFIG_MBEDTLS_EXTERNAL_MEM_ALLOC: "y"
       CONFIG_MBEDTLS_SSL_PROTO_TLS1_3: "y"  # TLS1.3 support isn't enabled by default in IDF 5.1.5
-
-      # Internal RAM optimization for AFE - reserve memory for DMA allocations
-      CONFIG_SPIRAM_MALLOC_RESERVE_INTERNAL: "98304"  # 96KB reserved for DMA and WiFi
-      CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL: "8192"     # Only <8KB stays internal
-
-      # WiFi IRAM optimization - frees ~17KB
-      CONFIG_ESP_WIFI_RX_IRAM_OPT: "n"
-
-      # Note: WiFi buffer settings are managed by ESPHome's WiFi component
-      # With PSRAM guaranteed, it uses high-performance settings with PSRAM allocation
-
-      # Move FreeRTOS to flash
-      CONFIG_FREERTOS_PLACE_FUNCTIONS_INTO_FLASH: "y"
-
-      # Disable BLE to free internal RAM (not currently used)
-      CONFIG_BT_ENABLED: "n"
-
-      # Allow task stacks to be allocated in PSRAM (needed for AFE task)
-      CONFIG_SPIRAM_ALLOW_STACK_EXTERNAL_MEMORY: "y"
 
 wifi:
   id: wifi_id
@@ -151,10 +130,6 @@ debug:
 
 logger:
   level: DEBUG
-  logs:
-    ring_buffer: WARN  # Reduce ring_buffer spam
-    resampler_speaker: WARN  # Reduce resampler spam
-    speaker_mixer: INFO  # Reduce mixer spam
 
 api:
   id: api_id
@@ -224,7 +199,6 @@ tca9555:
 psram:
   mode: octal
   speed: 80MHz
-  ignore_not_found: false  # Make PSRAM "guaranteed" for ESPHome optimizations
 
 # Shared globals used across packages
 globals:

@@ -1,0 +1,540 @@
+# Buttons and Controls Package
+# Contains: binary_sensors (buttons), number (gains), select (button actions), event
+
+globals:
+  - id: mic_gain_saved
+    type: float
+    restore_value: yes
+    initial_value: '32.0'
+  - id: mic_is_muted
+    type: bool
+    restore_value: yes
+    initial_value: 'false'
+
+number:
+  - platform: template
+    id: mic_gain_db
+    name: "Microphone Gain"
+    icon: mdi:microphone-settings
+    entity_category: config
+    min_value: 0
+    max_value: 36
+    step: 3
+    restore_value: true
+    initial_value: 32
+    set_action:
+      - lambda: |-
+          id(adc_mic).set_mic_gain(x);
+      - logger.log:
+          format: "[MIC] Set ES7210 gain to %.0f dB"
+          args: ["x"]
+
+  - platform: template
+    id: mic_gain_factor
+    name: "Voice Boost"
+    icon: mdi:amplifier
+    entity_category: config
+    min_value: 1
+    max_value: 64
+    step: 1
+    restore_value: true
+    initial_value: 32
+    set_action:
+      - lambda: |-
+          id(va_mic).set_gain_factor(x);
+      - logger.log:
+          format: "[MIC] Set gain factor to %.0f"
+          args: ["x"]
+
+  - platform: template
+    id: noise_suppression
+    name: "Noise Reduction"
+    icon: mdi:waveform
+    entity_category: config
+    min_value: 0
+    max_value: 4
+    step: 1
+    restore_value: true
+    initial_value: 4
+    set_action:
+      - lambda: |-
+          id(va).set_noise_suppression_level(x);
+      - logger.log:
+          format: "[MIC] Set suppression to %.0f"
+          args: ["x"]
+
+switch:
+  - platform: gpio
+    id: amp_enable_8
+    name: Amplifier
+    icon: mdi:speaker
+    entity_category: config
+    pin:
+      tca9555: ioexp
+      number: $amp_ctrl
+      inverted: false
+    restore_mode: RESTORE_DEFAULT_ON
+
+  - platform: template
+    id: mic_mute_switch
+    name: "Microphone Mute"
+    icon: mdi:microphone-off
+    restore_mode: RESTORE_DEFAULT_OFF
+    lambda: |-
+      return id(mic_is_muted);
+    turn_on_action:
+      - lambda: |-
+          id(mic_is_muted) = true;
+          id(adc_mic).set_mic_gain(0.0f);
+      - script.execute: flash_ring
+    turn_off_action:
+      - lambda: |-
+          id(mic_is_muted) = false;
+          id(adc_mic).set_mic_gain(id(mic_gain_saved));
+      - script.execute: flash_ring
+
+  - platform: template
+    id: voice_assistant_enabled
+    name: "Voice Assistant"
+    icon: mdi:microphone
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+    turn_on_action:
+      - logger.log: "Voice Assistant ENABLED"
+      - micro_wake_word.start:
+    turn_off_action:
+      - logger.log: "Voice Assistant DISABLED"
+      - micro_wake_word.stop:
+      - voice_assistant.stop:
+
+  - platform: template
+    id: mute_sound
+    name: "Feedback Sounds"
+    icon: mdi:volume-high
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+  - platform: template
+    id: wake_sound
+    name: "Wake Sound Effect"
+    icon: mdi:bullhorn
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_ON
+
+# Button action configuration selects
+select:
+  - platform: template
+    name: "Key1 Single Press Action"
+    id: key1_single_action
+    icon: mdi:gesture-tap
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "Volume Down"
+    options:
+      - "None"
+      - "Volume Up"
+      - "Volume Down"
+      - "Mute Toggle"
+      - "Play/Pause"
+      - "Next Track"
+      - "Previous Track"
+      - "Start Voice Assistant"
+      - "Toggle Voice Assistant"
+      - "Send HA Event"
+
+  - platform: template
+    name: "Key1 Double Press Action"
+    id: key1_double_action
+    icon: mdi:gesture-double-tap
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "Previous Track"
+    options:
+      - "None"
+      - "Volume Up"
+      - "Volume Down"
+      - "Mute Toggle"
+      - "Play/Pause"
+      - "Next Track"
+      - "Previous Track"
+      - "Start Voice Assistant"
+      - "Toggle Voice Assistant"
+      - "Send HA Event"
+
+  - platform: template
+    name: "Key1 Long Press Action"
+    id: key1_long_action
+    icon: mdi:gesture-tap-hold
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "Send HA Event"
+    options:
+      - "None"
+      - "Volume Up"
+      - "Volume Down"
+      - "Mute Toggle"
+      - "Play/Pause"
+      - "Next Track"
+      - "Previous Track"
+      - "Start Voice Assistant"
+      - "Toggle Voice Assistant"
+      - "Send HA Event"
+
+  - platform: template
+    name: "Key2 Single Press Action"
+    id: key2_single_action
+    icon: mdi:gesture-tap
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "Play/Pause"
+    options:
+      - "None"
+      - "Volume Up"
+      - "Volume Down"
+      - "Mute Toggle"
+      - "Play/Pause"
+      - "Next Track"
+      - "Previous Track"
+      - "Start Voice Assistant"
+      - "Toggle Voice Assistant"
+      - "Send HA Event"
+
+  - platform: template
+    name: "Key2 Double Press Action"
+    id: key2_double_action
+    icon: mdi:gesture-double-tap
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "Toggle Voice Assistant"
+    options:
+      - "None"
+      - "Volume Up"
+      - "Volume Down"
+      - "Mute Toggle"
+      - "Play/Pause"
+      - "Next Track"
+      - "Previous Track"
+      - "Start Voice Assistant"
+      - "Toggle Voice Assistant"
+      - "Send HA Event"
+
+  - platform: template
+    name: "Key2 Long Press Action"
+    id: key2_long_action
+    icon: mdi:gesture-tap-hold
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "Send HA Event"
+    options:
+      - "None"
+      - "Volume Up"
+      - "Volume Down"
+      - "Mute Toggle"
+      - "Play/Pause"
+      - "Next Track"
+      - "Previous Track"
+      - "Start Voice Assistant"
+      - "Toggle Voice Assistant"
+      - "Send HA Event"
+
+  - platform: template
+    name: "Key3 Single Press Action"
+    id: key3_single_action
+    icon: mdi:gesture-tap
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "Volume Up"
+    options:
+      - "None"
+      - "Volume Up"
+      - "Volume Down"
+      - "Mute Toggle"
+      - "Play/Pause"
+      - "Next Track"
+      - "Previous Track"
+      - "Start Voice Assistant"
+      - "Toggle Voice Assistant"
+      - "Send HA Event"
+
+  - platform: template
+    name: "Key3 Double Press Action"
+    id: key3_double_action
+    icon: mdi:gesture-double-tap
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "Next Track"
+    options:
+      - "None"
+      - "Volume Up"
+      - "Volume Down"
+      - "Mute Toggle"
+      - "Play/Pause"
+      - "Next Track"
+      - "Previous Track"
+      - "Start Voice Assistant"
+      - "Toggle Voice Assistant"
+      - "Send HA Event"
+
+  - platform: template
+    name: "Key3 Long Press Action"
+    id: key3_long_action
+    icon: mdi:gesture-tap-hold
+    entity_category: config
+    optimistic: true
+    restore_value: true
+    initial_option: "Send HA Event"
+    options:
+      - "None"
+      - "Volume Up"
+      - "Volume Down"
+      - "Mute Toggle"
+      - "Play/Pause"
+      - "Next Track"
+      - "Previous Track"
+      - "Start Voice Assistant"
+      - "Toggle Voice Assistant"
+      - "Send HA Event"
+
+event:
+  - platform: template
+    id: button_press_event
+    name: "Button Press"
+    icon: mdi:gesture-tap-button
+    device_class: button
+    event_types:
+      - key1_single
+      - key1_double
+      - key1_long
+      - key2_single
+      - key2_double
+      - key2_long
+      - key3_single
+      - key3_double
+      - key3_long
+
+script:
+  # Centralized button action handler
+  - id: execute_button_action
+    parameters:
+      action_name: string
+      button_id: string
+    then:
+      - lambda: |-
+          ESP_LOGI("button", "Action '%s' for '%s'", action_name.c_str(), button_id.c_str());
+          if (action_name == "None") {
+            return;
+          } else if (action_name == "Volume Up") {
+            id(external_media_player).make_call().set_command(
+              media_player::MediaPlayerCommand::MEDIA_PLAYER_COMMAND_VOLUME_UP).perform();
+          } else if (action_name == "Volume Down") {
+            id(external_media_player).make_call().set_command(
+              media_player::MediaPlayerCommand::MEDIA_PLAYER_COMMAND_VOLUME_DOWN).perform();
+          } else if (action_name == "Mute Toggle") {
+            id(external_media_player).make_call().set_command(
+              media_player::MediaPlayerCommand::MEDIA_PLAYER_COMMAND_MUTE).perform();
+          } else if (action_name == "Play/Pause") {
+            id(external_media_player).make_call().set_command(
+              media_player::MediaPlayerCommand::MEDIA_PLAYER_COMMAND_TOGGLE).perform();
+          } else if (action_name == "Next Track" || action_name == "Previous Track") {
+            // Not supported by ESPHome media_player - use HA event instead
+            ESP_LOGW("button", "Next/Previous Track not supported - sending HA event");
+          } else if (action_name == "Toggle Voice Assistant") {
+            id(voice_assistant_enabled).toggle();
+          }
+      - if:
+          condition:
+            lambda: 'return action_name == "Start Voice Assistant";'
+          then:
+            - voice_assistant.start:
+      - if:
+          condition:
+            lambda: 'return action_name == "Send HA Event" || action_name == "Next Track" || action_name == "Previous Track";'
+          then:
+            - homeassistant.event:
+                event: esphome.button_action
+                data:
+                  button: !lambda 'return button_id;'
+                  action: !lambda 'return action_name;'
+
+binary_sensor:
+  - platform: gpio
+    name: "Button: Volume Down"
+    id: key1_button
+    icon: mdi:volume-minus
+    entity_category: diagnostic
+    pin:
+      tca9555: ioexp
+      number: 9
+      inverted: true
+    filters:
+      - delayed_on: 30ms
+      - delayed_off: 30ms
+    on_multi_click:
+      # Single Press
+      - timing:
+          - ON for at most 1s
+          - OFF for at least 0.25s
+        then:
+          - if:
+              condition:
+                switch.is_on: timer_ringing
+              then:
+                - switch.turn_off: timer_ringing
+              else:
+                - script.execute:
+                    id: execute_button_action
+                    action_name: !lambda 'return id(key1_single_action).state;'
+                    button_id: "key1"
+          - event.trigger:
+              id: button_press_event
+              event_type: "key1_single"
+      # Double Press
+      - timing:
+          - ON for at most 1s
+          - OFF for at most 0.25s
+          - ON for at most 1s
+          - OFF for at least 0.25s
+        then:
+          - script.execute:
+              id: execute_button_action
+              action_name: !lambda 'return id(key1_double_action).state;'
+              button_id: "key1"
+          - event.trigger:
+              id: button_press_event
+              event_type: "key1_double"
+      # Long Press
+      - timing:
+          - ON for at least 1s
+        then:
+          - script.execute:
+              id: execute_button_action
+              action_name: !lambda 'return id(key1_long_action).state;'
+              button_id: "key1"
+          - event.trigger:
+              id: button_press_event
+              event_type: "key1_long"
+
+  - platform: gpio
+    name: "Button: Play/Pause"
+    id: key2_button
+    icon: mdi:play-pause
+    entity_category: diagnostic
+    pin:
+      tca9555: ioexp
+      number: 10
+      inverted: true
+    filters:
+      - delayed_on: 30ms
+      - delayed_off: 30ms
+    on_multi_click:
+      # Single Press
+      - timing:
+          - ON for at most 1s
+          - OFF for at least 0.25s
+        then:
+          - if:
+              condition:
+                switch.is_on: timer_ringing
+              then:
+                - switch.turn_off: timer_ringing
+              else:
+                - script.execute:
+                    id: execute_button_action
+                    action_name: !lambda 'return id(key2_single_action).state;'
+                    button_id: "key2"
+          - event.trigger:
+              id: button_press_event
+              event_type: "key2_single"
+      # Double Press
+      - timing:
+          - ON for at most 1s
+          - OFF for at most 0.25s
+          - ON for at most 1s
+          - OFF for at least 0.25s
+        then:
+          - script.execute:
+              id: execute_button_action
+              action_name: !lambda 'return id(key2_double_action).state;'
+              button_id: "key2"
+          - event.trigger:
+              id: button_press_event
+              event_type: "key2_double"
+      # Long Press
+      - timing:
+          - ON for at least 1s
+        then:
+          - script.execute:
+              id: execute_button_action
+              action_name: !lambda 'return id(key2_long_action).state;'
+              button_id: "key2"
+          - event.trigger:
+              id: button_press_event
+              event_type: "key2_long"
+
+  - platform: gpio
+    name: "Button: Volume Up"
+    id: key3_button
+    icon: mdi:volume-plus
+    entity_category: diagnostic
+    pin:
+      tca9555: ioexp
+      number: 11
+      inverted: true
+    filters:
+      - delayed_on: 30ms
+      - delayed_off: 30ms
+    on_multi_click:
+      # Single Press
+      - timing:
+          - ON for at most 1s
+          - OFF for at least 0.25s
+        then:
+          - if:
+              condition:
+                switch.is_on: timer_ringing
+              then:
+                - switch.turn_off: timer_ringing
+              else:
+                - script.execute:
+                    id: execute_button_action
+                    action_name: !lambda 'return id(key3_single_action).state;'
+                    button_id: "key3"
+          - event.trigger:
+              id: button_press_event
+              event_type: "key3_single"
+      # Double Press
+      - timing:
+          - ON for at most 1s
+          - OFF for at most 0.25s
+          - ON for at most 1s
+          - OFF for at least 0.25s
+        then:
+          - script.execute:
+              id: execute_button_action
+              action_name: !lambda 'return id(key3_double_action).state;'
+              button_id: "key3"
+          - event.trigger:
+              id: button_press_event
+              event_type: "key3_double"
+      # Long Press
+      - timing:
+          - ON for at least 1s
+        then:
+          - script.execute:
+              id: execute_button_action
+              action_name: !lambda 'return id(key3_long_action).state;'
+              button_id: "key3"
+          - event.trigger:
+              id: button_press_event
+              event_type: "key3_long"

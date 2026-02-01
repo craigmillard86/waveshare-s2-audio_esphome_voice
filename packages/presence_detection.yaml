@@ -1,0 +1,80 @@
+# Presence Detection Package
+# Contains: UART, LD2410C mmWave radar, presence sensors, mic control automation
+
+uart:
+  - id: ld2410_uart
+    tx_pin: GPIO6
+    rx_pin: GPIO5
+    baud_rate: 256000
+    parity: NONE
+    stop_bits: 1
+
+ld2410:
+  id: ld2410_radar
+  uart_id: ld2410_uart
+
+binary_sensor:
+  - platform: ld2410
+    has_target:
+      id: room_presence
+      name: "Room Presence"
+      on_press:
+        - if:
+            condition:
+              switch.is_on: presence_mic_control
+            then:
+              - logger.log: "Presence detected - enabling microphone"
+              - switch.turn_off: mic_mute_switch
+      on_release:
+        - if:
+            condition:
+              switch.is_on: presence_mic_control
+            then:
+              - delay: 30s  # Debounce - wait before disabling
+              - if:
+                  condition:
+                    binary_sensor.is_off: room_presence
+                  then:
+                    - logger.log: "No presence - disabling microphone"
+                    - switch.turn_on: mic_mute_switch
+    has_moving_target:
+      name: "Moving Target"
+    has_still_target:
+      name: "Still Target"
+
+sensor:
+  - platform: ld2410
+    moving_distance:
+      name: "Moving Distance"
+    still_distance:
+      name: "Still Distance"
+    moving_energy:
+      name: "Moving Energy"
+    still_energy:
+      name: "Still Energy"
+    detection_distance:
+      name: "Detection Distance"
+
+switch:
+  # Control switch - enable/disable presence-based mic control
+  - platform: template
+    id: presence_mic_control
+    name: "Presence Controls Mic"
+    icon: "mdi:motion-sensor"
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF  # Disabled by default - mic works normally
+
+  - platform: ld2410
+    engineering_mode:
+      name: "Radar Engineering Mode"
+    bluetooth:
+      name: "Radar Bluetooth"
+
+number:
+  - platform: ld2410
+    timeout:
+      name: "Presence Timeout"
+    max_move_distance_gate:
+      name: "Max Move Distance Gate"
+    max_still_distance_gate:
+      name: "Max Still Distance Gate"
