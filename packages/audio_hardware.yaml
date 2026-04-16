@@ -37,7 +37,7 @@ external_components:
   - source:
       type: local
       path: components
-    components: [ esp_afe ]
+    components: [ esp_afe, voice_assistant ]
 
 audio_dac:
   - platform: es8311
