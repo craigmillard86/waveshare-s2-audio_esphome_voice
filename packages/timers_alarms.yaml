@@ -189,11 +189,11 @@ script:
           const auto timers = id(va).get_timers();
           if (timers.empty()) return;
 
-          auto output_timer = timers.begin()->second;
-          for (auto &iterable_timer : timers) {
-            if (iterable_timer.second.is_active &&
-                iterable_timer.second.seconds_left <= output_timer.seconds_left) {
-              output_timer = iterable_timer.second;
+          auto output_timer = timers.front();
+          for (const auto &t : timers) {
+            if (t.is_active &&
+                t.seconds_left <= output_timer.seconds_left) {
+              output_timer = t;
             }
           }
           id(first_active_timer) = output_timer;
@@ -204,8 +204,8 @@ script:
           const auto timers = id(va).get_timers();
           bool output = false;
           if (!timers.empty()) {
-            for (auto &iterable_timer : timers) {
-              if (iterable_timer.second.is_active) {
+            for (const auto &t : timers) {
+              if (t.is_active) {
                 output = true;
                 break;
               }
