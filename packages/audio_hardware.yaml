@@ -28,16 +28,13 @@ audio_adc:
     bits_per_sample: $i2s_bps_mic
 
 external_components:
+  # All components from patched fork - fixes voice_assistant for ESPHome 2026.4.0
   - source:
       type: git
-      url: "https://github.com/sw3Dan/waveshare-s2-audio_esphome_voice"
-      ref: main
-    components: [ es8311 ]
+      url: "https://github.com/f17mkx/waveshare-s2-audio_esphome_voice"
+      ref: rework-branch
+    components: [ es8311, esp_afe, voice_assistant ]
     refresh: 0s
-  - source:
-      type: local
-      path: components
-    components: [ esp_afe, voice_assistant ]
 
 audio_dac:
   - platform: es8311
